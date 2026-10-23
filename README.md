@@ -1,6 +1,6 @@
 # taller-k8s-gponceb
 
-Entrega del **Taller Práctico de Kubernetes — Edición Enterprise Extended** (Módulos 3 a 8).
+Esta es mi entrega del **Taller Práctico de Kubernetes — Edición Enterprise Extended** (Módulos 3 a 8).
 
 | | |
 |---|---|
@@ -9,10 +9,12 @@ Entrega del **Taller Práctico de Kubernetes — Edición Enterprise Extended** 
 | **Fecha de entrega** | 23 de octubre de 2026 |
 | **Asignatura** | Administración Avanzada de Contenedores y Orquestación con Kubernetes |
 
-📄 **Reporte técnico de evidencias:** [`REPORTE-TECNICO-gponceb.pdf`](REPORTE-TECNICO-gponceb.pdf)
-📘 **Guía del taller (con encabezado completo):** [`GUIA-TALLER.md`](GUIA-TALLER.md)
+📄 **Mi reporte técnico de evidencias:** [`REPORTE-TECNICO-gponceb.pdf`](REPORTE-TECNICO-gponceb.pdf)
+📘 **La guía del taller, con mis datos en el encabezado:** [`GUIA-TALLER.md`](GUIA-TALLER.md)
 
-## Arquitectura
+## Lo que construí
+
+Desplegué en mi namespace `gponceb` una aplicación CRUD de productos con esta arquitectura:
 
 ```
                  http://localhost
@@ -35,7 +37,7 @@ Entrega del **Taller Práctico de Kubernetes — Edición Enterprise Extended** 
           fluentd-logging (DaemonSet) · ResourceQuota + LimitRange
 ```
 
-## Estructura
+## Cómo organicé el repositorio
 
 ```
 taller-k8s-gponceb/
@@ -46,57 +48,57 @@ taller-k8s-gponceb/
 ├── mod5-networking/            # Services, Ingress y NetworkPolicies Zero-Trust
 ├── mod6-storage/               # PVCs
 ├── mod7-production-hardening/  # PDB, ResourceQuota, LimitRange
-├── mod8-troubleshooting/       # 6 escenarios de error intencionales
-├── cluster-setup/              # Instalación de Calico, local-path, metrics-server, ingress-nginx
-├── scripts/                    # build de imágenes, despliegue, prueba de carga, inspección de backups
-├── evidencias/                 # Salida real de cada paso (.txt), capturas de terminal y de la web (.png)
+├── mod8-troubleshooting/       # Los 6 escenarios de error intencionales
+├── cluster-setup/              # Cómo preparé el clúster: Calico, local-path, metrics-server, ingress-nginx
+├── scripts/                    # Build de imágenes, despliegue, prueba de carga, inspección de backups
+├── evidencias/                 # La salida real de cada paso (.txt) y mis capturas de terminal y de la web (.png)
 └── REPORTE-TECNICO-gponceb.pdf
 ```
 
-## Cómo reproducirlo
+## Cómo lo ejecuté
 
-El taller se ejecutó en un clúster **kubeadm de un nodo** (Kubernetes v1.37.1, containerd), no en Docker Desktop.
+No usé Docker Desktop: trabajé sobre un clúster **kubeadm de un nodo** en Linux (Kubernetes v1.37.1 con containerd). Estos son los pasos que seguí y que sirven para reproducirlo:
 
 ```bash
-# 1. Complementos del clúster (Calico, StorageClass, metrics-server, Ingress Controller)
+# 1. Preparé el clúster (Calico, StorageClass, metrics-server, Ingress Controller)
 bash cluster-setup/install-addons.sh
 
-# 2. Imágenes: docker build + importación en containerd
+# 2. Construí las imágenes y las importé a containerd
 sudo bash scripts/build-images.sh
 
-# 3. Despliegue completo (pasos 1–9 de la guía)
+# 3. Desplegué todo (pasos 1–9 de la guía)
 bash scripts/deploy.sh
 
-# 4. Verificación
-open http://localhost                       # interfaz CRUD
-node scripts/load-test.js 240 64            # carga para el HPA  (kubectl get hpa -w)
-bash scripts/inspect-backups.sh             # respaldos dentro de backup-pvc
+# 4. Verifiqué
+open http://localhost                       # la interfaz CRUD
+node scripts/load-test.js 240 64            # la carga para el HPA  (kubectl get hpa -w)
+bash scripts/inspect-backups.sh             # los respaldos dentro de backup-pvc
 
-# 5. Escenarios de troubleshooting (paso 10)
+# 5. Reproduje los escenarios de troubleshooting (paso 10)
 kubectl apply -f mod8-troubleshooting/
 ```
 
-En **Docker Desktop** se omite el paso 1 (basta con instalar ingress-nginx y metrics-server) y en el paso 2 alcanza con `docker build`.
+Si alguien lo prueba en **Docker Desktop**, puede saltarse el paso 1 (solo hace falta instalar ingress-nginx y metrics-server), y en el paso 2 le basta con `docker build`.
 
-## Correcciones respecto a la guía
+## Problemas que encontré en la guía y cómo los corregí
 
-Cada cambio está comentado en el YAML correspondiente. El detalle está en la sección 2 del reporte.
+Al seguir la guía tal cual, varias cosas me fallaron. Dejé comentado cada cambio en su YAML, y en la sección 2 del reporte explico el detalle.
 
-| Archivo | Cambio | Motivo |
+| Archivo | Qué cambié | Por qué |
 |---|---|---|
-| `mod5-networking/04-ingress-nginx.yaml` | Sin `rewrite-target`, paths `Prefix` | El rewrite quitaba `/api` y el backend respondía 404 |
-| `app-src/backend/package-lock.json` | Agregado | `npm ci` falla sin lockfile |
-| `mod5-networking/07-backend-networkpolicy.yaml` | Permite el namespace `ingress-nginx` y DNS TCP | Con default-deny el Ingress no llegaba al backend |
-| `mod5-networking/08-database-networkpolicy.yaml` | **Nuevo** | PostgreSQL rechazaba todo el tráfico; los Jobs no tenían salida |
-| `mod5-networking/06-frontend-networkpolicy.yaml` | Permite DNS | default-deny bloquea CoreDNS |
-| `mod6-storage/02-backup-pvc.yaml` | `ReadWriteOnce` | local-path/hostpath no soportan RWX |
-| `mod7-production-hardening/03-limitrange.yaml` | **Nuevo** | La ResourceQuota rechaza pods sin requests/limits |
-| `mod4-config/01-production-probes-resources.yaml` | Conserva sidecar y ConfigMap | Aplicarlo eliminaba el patrón multicontenedor |
-| `mod3-workloads/04-backend-configmap.yaml`, `mod6-storage/03-statefulset-volume-claim-template.yaml` | **Creados** | Estaban en la estructura sin contenido |
-| `scripts/inspect-backups.sh` | Reemplaza `kubectl run ... -v backup-pvc:/backups` | `-v` en kubectl es verbosidad, no un volumen |
+| `mod5-networking/04-ingress-nginx.yaml` | Quité el `rewrite-target` y usé paths `Prefix` | El rewrite quitaba `/api` y mi backend respondía 404 |
+| `app-src/backend/package-lock.json` | Lo agregué | `npm ci` falla sin lockfile |
+| `mod5-networking/07-backend-networkpolicy.yaml` | Permití el namespace `ingress-nginx` y el DNS por TCP | Con default-deny el Ingress no llegaba a mi backend |
+| `mod5-networking/08-database-networkpolicy.yaml` | **Lo creé** | PostgreSQL rechazaba todo el tráfico y los Jobs no tenían salida |
+| `mod5-networking/06-frontend-networkpolicy.yaml` | Permití el DNS | default-deny bloqueaba CoreDNS |
+| `mod6-storage/02-backup-pvc.yaml` | Lo cambié a `ReadWriteOnce` | local-path/hostpath no soportan RWX |
+| `mod7-production-hardening/03-limitrange.yaml` | **Lo creé** | La ResourceQuota rechazaba mis pods sin requests/limits |
+| `mod4-config/01-production-probes-resources.yaml` | Conservé el sidecar y el ConfigMap | Al aplicarlo perdía el patrón multicontenedor |
+| `mod3-workloads/04-backend-configmap.yaml`, `mod6-storage/03-statefulset-volume-claim-template.yaml` | **Los creé** | Estaban en la estructura pero sin contenido |
+| `scripts/inspect-backups.sh` | Reemplaza a `kubectl run ... -v backup-pvc:/backups` | En kubectl `-v` es verbosidad, no un volumen |
 
-## Resultados destacados
+## Lo que más me llamó la atención
 
-- **HPA:** bajo carga escaló a 10 réplicas deseadas (CPU 452 %/70 %); la ResourceQuota (`limits.cpu: 4`) limitó a 5 pods reales (`exceeded quota`). Al terminar volvió a 2.
-- **Zero-Trust:** un pod no autorizado ya no llega al backend ni a PostgreSQL; la app, el Ingress y los backups siguen funcionando.
-- **Escenario 6 (NetworkPolicy):** las políticas son **aditivas**. `error-block-dns` no bloquea mientras exista `allow-backend`; el fallo aparece cuando la política restrictiva queda sola.
+- **HPA:** con carga, mi HPA pidió 10 réplicas (CPU 452 %/70 %), pero la ResourceQuota (`limits.cpu: 4`) lo frenó en 5 pods reales (`exceeded quota`). Al quitar la carga volvió a 2.
+- **Zero-Trust:** después de aplicar las políticas, un pod no autorizado ya no llega a mi backend ni a PostgreSQL, y la app, el Ingress y los backups siguen funcionando.
+- **Escenario 6 (NetworkPolicy):** descubrí que las políticas se **suman**. `error-block-dns` no bloquea nada mientras exista `allow-backend`; el fallo aparece cuando la política restrictiva queda sola.
