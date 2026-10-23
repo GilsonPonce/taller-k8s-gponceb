@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: error-oom-killed
+  namespace: gponceb # Namespace del estudiante
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: oom-fail
+  template:
+    metadata:
+      labels:
+        app: oom-fail
+    spec:
+      containers:
+      - name: memory-eater
+        image: polinux/stress
+        resources:
+          limits:
+            memory: "20Mi" # Límite severamente restrictivo
+        command: ["stress", "--vm", "1", "--vm-bytes", "50M"] # Intenta consumir 50MB

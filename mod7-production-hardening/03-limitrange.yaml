@@ -1,0 +1,17 @@
+# Agregado: con una ResourceQuota de CPU/memoria activa, Kubernetes RECHAZA cualquier pod
+# que no declare requests/limits (por ejemplo los pods de prueba de kubectl run o los
+# escenarios del Módulo 8). Este LimitRange asigna valores por defecto a esos contenedores.
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: default-limits
+  namespace: gponceb # Namespace del estudiante
+spec:
+  limits:
+  - type: Container
+    defaultRequest: # Requests asignados si el contenedor no declara ninguno
+      cpu: 50m
+      memory: 64Mi
+    default: # Limits asignados si el contenedor no declara ninguno
+      cpu: 200m
+      memory: 128Mi

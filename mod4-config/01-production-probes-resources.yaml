@@ -1,0 +1,97 @@
+# Versión endurecida del Deployment backend-api (reemplaza a mod3-workloads/05 al aplicarse).
+# Se conservan el sidecar de logs y el ConfigMap del Módulo 3 para que aplicar este archivo
+# no elimine el patrón multicontenedor.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-api
+  namespace: gponceb # Namespace del estudiante
+  labels:
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend-api
+  template:
+    metadata:
+      labels:
+        app: backend-api
+        tier: backend
+    spec:
+      initContainers:
+      - name: check-db-ready
+        image: busybox:1.36
+        command: ['sh', '-c', 'until nc -z -w 2 postgres-service 5432; do echo "Esperando DB..."; sleep 2; done;']
+        resources:
+          requests:
+            cpu: "10m"
+            memory: "16Mi"
+          limits:
+            cpu: "50m"
+            memory: "32Mi"
+      containers:
+      - name: api
+        image: k8s-backend:v1.0
+        imagePullPolicy: Never
+        resources: # Garantías de cómputo necesarias para la recolección de métricas de HPA
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        livenessProbe: # Sonda para comprobar la salud del proceso interno del contenedor
+          httpGet:
+            path: /healthz # Ruta de verificación HTTP
+            port: 5678
+          initialDelaySeconds: 15 # Espera inicial para permitir arranque de dependencias
+          periodSeconds: 10 # Intervalo de tiempo entre sondeos
+          failureThreshold: 3 # Número de fallos consecutivos antes de reiniciar el Pod
+        readinessProbe: # Sonda que controla si el Pod recibe tráfico del Service
+          httpGet:
+            path: /healthz
+            port: 5678
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          successThreshold: 1 # Éxitos necesarios para agregar la IP del pod al Endpoint del Service
+        envFrom:
+        - configMapRef:
+            name: backend-config
+        env:
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: POSTGRES_DB
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: POSTGRES_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secret
+              key: POSTGRES_PASSWORD
+        ports:
+        - containerPort: 5678
+        volumeMounts:
+        - name: shared-logs
+          mountPath: /app/logs
+      - name: log-adapter-sidecar # PATRÓN SIDECAR conservado del Módulo 3
+        image: busybox:1.36
+        command: ["sh", "-c", "touch /app/logs/app.log && tail -f /app/logs/app.log"]
+        resources:
+          requests:
+            cpu: "10m"
+            memory: "16Mi"
+          limits:
+            cpu: "50m"
+            memory: "32Mi"
+        volumeMounts:
+        - name: shared-logs
+          mountPath: /app/logs
+      volumes:
+      - name: shared-logs
+        emptyDir: {}

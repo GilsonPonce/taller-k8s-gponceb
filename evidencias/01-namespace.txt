@@ -1,0 +1,9 @@
+$ kubectl apply -f 00-namespace.yaml
+namespace/gponceb created
+
+$ kubectl config set-context --current --namespace=gponceb
+Context "kubernetes-admin@kubernetes" modified.
+
+$ kubectl config view --minify | grep namespace:
+    namespace: gponceb
+

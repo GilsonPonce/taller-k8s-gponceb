@@ -1,0 +1,27 @@
+# CORRECCIÓN respecto a la guía: se elimina la anotación rewrite-target: /$2.
+# El backend define sus rutas CON el prefijo /api (/api/productos), así que quitarlo
+# provocaba 404. Ahora /api se reenvía intacto al backend y todo lo demás al frontend.
+apiVersion: networking.k8s.io/v1
+kind: Ingress # Enrutador Capa 7 (HTTP/HTTPS) basado en reglas
+metadata:
+  name: app-ingress
+  namespace: gponceb # Namespace del estudiante
+spec:
+  ingressClassName: nginx # Vincula este Ingress con el controlador Ingress de NGINX
+  rules:
+  - http:
+      paths:
+      - path: /api # Todo lo que empiece por /api va al backend CON el prefijo /api
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 5678 # Coincide con el puerto 5678 de Node.js
+      - path: / # Todo lo demás va a la interfaz web
+        pathType: Prefix
+        backend:
+          service:
+            name: frontend-service
+            port:
+              number: 80

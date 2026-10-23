@@ -1,0 +1,12 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: error-block-dns
+  namespace: gponceb # Namespace del estudiante
+spec:
+  podSelector:
+    matchLabels:
+      app: backend-api
+  policyTypes:
+  - Egress
+  egress: [] # Bloquea TODO el tráfico saliente sin excepciones (incluyendo DNS)

@@ -1,0 +1,88 @@
+$ kubectl apply -f mod3-workloads/10-hpa-autoscaler.yaml
+horizontalpodautoscaler.autoscaling/backend-hpa created
+
+$ kubectl get hpa
+NAME          REFERENCE                TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+backend-hpa   Deployment/backend-api   cpu: 2%/70%   2         10        2          45s
+
+$ kubectl top pods
+NAME                           CPU(cores)   MEMORY(bytes)   
+backend-api-7f8496c7f9-68znx   2m           19Mi            
+backend-api-7f8496c7f9-rbtbx   2m           19Mi            
+fluentd-logging-q4t9k          1m           64Mi            
+frontend-web-c87d4b684-brc6n   0m           22Mi            
+frontend-web-c87d4b684-cz4q6   0m           22Mi            
+postgres-db-0                  1m           25Mi            
+
+$ node scripts/load-test.js 240 64   # carga desde el host a http://localhost/api/productos
+--- t=15s
+backend-hpa   Deployment/backend-api   cpu: 12%/70%   2     10    2     4m39s
+--- t=30s
+backend-hpa   Deployment/backend-api   cpu: 59%/70%   2     10    2     4m54s
+--- t=45s
+backend-hpa   Deployment/backend-api   cpu: 414%/70%   2     10    2     5m10s
+--- t=60s
+backend-hpa   Deployment/backend-api   cpu: 452%/70%   2     10    4     5m25s
+--- t=75s
+backend-hpa   Deployment/backend-api   cpu: 419%/70%   2     10    8     5m40s
+--- t=90s
+backend-hpa   Deployment/backend-api   cpu: 383%/70%   2     10    10    5m55s
+--- t=105s
+backend-hpa   Deployment/backend-api   cpu: 350%/70%   2     10    10    6m10s
+--- t=120s
+backend-hpa   Deployment/backend-api   cpu: 356%/70%   2     10    10    6m25s
+--- t=135s
+backend-hpa   Deployment/backend-api   cpu: 359%/70%   2     10    10    6m40s
+--- t=150s
+backend-hpa   Deployment/backend-api   cpu: 357%/70%   2     10    10    6m55s
+--- t=165s
+backend-hpa   Deployment/backend-api   cpu: 358%/70%   2     10    10    7m10s
+--- t=180s
+backend-hpa   Deployment/backend-api   cpu: 362%/70%   2     10    10    7m25s
+--- t=195s
+backend-hpa   Deployment/backend-api   cpu: 356%/70%   2     10    10    7m40s
+--- t=210s
+backend-hpa   Deployment/backend-api   cpu: 351%/70%   2     10    10    7m55s
+--- t=225s
+backend-hpa   Deployment/backend-api   cpu: 345%/70%   2     10    10    8m10s
+--- t=240s
+backend-hpa   Deployment/backend-api   cpu: 342%/70%   2     10    10    8m26s
+peticiones OK=1411042 fallidas=0
+FIN: OK=1411064 fallidas=0
+$ kubectl get pods -l app=backend-api
+NAME                           READY   STATUS    RESTARTS   AGE
+backend-api-7f8496c7f9-68znx   2/2     Running   0          8m41s
+backend-api-7f8496c7f9-fgjjt   2/2     Running   0          3m26s
+backend-api-7f8496c7f9-hvsd9   2/2     Running   0          3m26s
+backend-api-7f8496c7f9-k8ffl   2/2     Running   0          3m11s
+backend-api-7f8496c7f9-rbtbx   2/2     Running   0          8m34s
+
+$ kubectl describe hpa backend-hpa | sed -n '/Events:/,$p'
+Events:
+  Type     Reason                        Age    From                       Message
+  ----     ------                        ----   ----                       -------
+  Warning  FailedGetResourceMetric       8m26s  horizontal-pod-autoscaler  failed to get cpu utilization: did not receive metrics for targeted pods (pods might be unready)
+  Warning  FailedComputeMetricsReplicas  8m26s  horizontal-pod-autoscaler  invalid metrics (1 invalid out of 1), first error is: failed to get cpu resource metric value: failed to get cpu utilization: did not receive metrics for targeted pods (pods might be unready)
+  Normal   SuccessfulRescale             3m26s  horizontal-pod-autoscaler  New size: 4; reason: cpu resource utilization (percentage of request) above target
+  Normal   SuccessfulRescale             3m11s  horizontal-pod-autoscaler  New size: 8; reason: cpu resource utilization (percentage of request) above target
+  Normal   SuccessfulRescale             2m56s  horizontal-pod-autoscaler  New size: 10; reason: cpu resource utilization (percentage of request) above target
+
+$ kubectl describe resourcequota compute-quota | grep -E 'limits.cpu|pods'
+limits.cpu       3950m   4
+pods             9       20
+
+$ kubectl get events --field-selector reason=FailedCreate | tail -3
+3m10s       Warning   FailedCreate   replicaset/backend-api-7f8496c7f9   Error creating: pods "backend-api-7f8496c7f9-wck4z" is forbidden: exceeded quota: compute-quota, requested: limits.cpu=550m, used: limits.cpu=3950m, limited: limits.cpu=4
+3m10s       Warning   FailedCreate   replicaset/backend-api-7f8496c7f9   Error creating: pods "backend-api-7f8496c7f9-v8tcz" is forbidden: exceeded quota: compute-quota, requested: limits.cpu=550m, used: limits.cpu=3950m, limited: limits.cpu=4
+2m56s       Warning   FailedCreate   replicaset/backend-api-7f8496c7f9   (combined from similar events): Error creating: pods "backend-api-7f8496c7f9-fdmp8" is forbidden: exceeded quota: compute-quota, requested: limits.cpu=550m, used: limits.cpu=3950m, limited: limits.cpu=4
+
+$ kubectl get hpa backend-hpa
+NAME          REFERENCE                TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+backend-hpa   Deployment/backend-api   cpu: 1%/70%   2         10        2          14m
+
+$ kubectl describe hpa backend-hpa | grep SuccessfulRescale
+  Normal   SuccessfulRescale             9m27s  horizontal-pod-autoscaler  New size: 4; reason: cpu resource utilization (percentage of request) above target
+  Normal   SuccessfulRescale             9m12s  horizontal-pod-autoscaler  New size: 8; reason: cpu resource utilization (percentage of request) above target
+  Normal   SuccessfulRescale             8m57s  horizontal-pod-autoscaler  New size: 10; reason: cpu resource utilization (percentage of request) above target
+  Normal   SuccessfulRescale             26s    horizontal-pod-autoscaler  New size: 2; reason: All metrics below target
+

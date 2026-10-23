@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: error-pvc-pending
+  namespace: gponceb # Namespace del estudiante
+spec:
+  storageClassName: storage-class-inexistente # Error introducido intencionalmente
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Gi

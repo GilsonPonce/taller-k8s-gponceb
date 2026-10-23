@@ -1,0 +1,45 @@
+apiVersion: batch/v1
+kind: CronJob # Programa la ejecución de Jobs basándose en expresiones Cron
+metadata:
+  name: db-backup-cronjob
+  namespace: gponceb # Namespace del estudiante
+spec:
+  schedule: "*/5 * * * *" # Expresión cron: Se ejecuta cada 5 minutos
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            role: db-client # Permite el acceso a PostgreSQL bajo Zero-Trust (08-db-clients-networkpolicy.yaml)
+        spec:
+          containers:
+          - name: backup
+            image: postgres:15-alpine
+            envFrom:
+            - secretRef:
+                name: db-secret
+            resources:
+              requests:
+                cpu: "50m"
+                memory: "64Mi"
+              limits:
+                cpu: "200m"
+                memory: "128Mi"
+            command:
+            - sh
+            - -c
+            - |
+              FILENAME="/backups/backup-$(date +%Y%m%d-%H%M%S).sql"
+              echo "=== GENERANDO BACKUP EN VOLUMEN PERSISTENTE ==="
+              PGPASSWORD=$POSTGRES_PASSWORD pg_dump -h postgres-service -U $POSTGRES_USER $POSTGRES_DB > $FILENAME
+              echo "Backup guardado exitosamente en: $FILENAME"
+            volumeMounts:
+            - name: backup-volume
+              mountPath: /backups # Punto de montaje donde escribe el Dump
+          restartPolicy: OnFailure
+          volumes:
+          - name: backup-volume
+            persistentVolumeClaim:
+              claimName: backup-pvc # Volumen persistente dedicado para almacenamiento de respaldos

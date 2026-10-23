@@ -1,0 +1,67 @@
+$ kubectl apply -f mod3-workloads/08-db-migration-job.yaml
+job.batch/db-migration-job created
+
+$ kubectl get job db-migration-job
+NAME               STATUS     COMPLETIONS   DURATION   AGE
+db-migration-job   Complete   1/1           10s        10s
+
+$ kubectl logs job/db-migration-job
+INSERT 0 1
+
+$ kubectl apply -f mod3-workloads/09-db-backup-cronjob-pvc.yaml
+cronjob.batch/db-backup-cronjob created
+
+$ kubectl create job backup-manual-1 --from=cronjob/db-backup-cronjob
+job.batch/backup-manual-1 created
+
+$ kubectl logs job/backup-manual-1
+=== GENERANDO BACKUP EN VOLUMEN PERSISTENTE ===
+Backup guardado exitosamente en: /backups/backup-20261023-150129.sql
+
+$ kubectl get pvc backup-pvc
+NAME         STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+backup-pvc   Bound    pvc-728907df-f256-4063-83cc-7e5158365f72   5Gi        RWO            local-path     <unset>                 32m
+
+$ bash scripts/inspect-backups.sh
+pod/inspect-backup created
+total 4
+-rw-r--r--    1 root     root          2488 Oct 23 15:01 backup-20261023-150129.sql
+
+Datos del respaldo mas reciente:
+COPY public.productos (id, nombre, precio, creado_en) FROM stdin;
+1	Servidor Rack Dell PowerEdge	4500.00	2026-10-23 14:29:39.037578
+2	Switch Gestionable Cisco 48p	1200.00	2026-10-23 14:29:39.037578
+4	Laptop Gilson Ponce	1500.00	2026-10-23 14:47:42.621505
+5	Monitor Kubernetes gponceb	349.99	2026-10-23 14:56:04.195915
+6	Audífonos Canceling Sony	320.00	2026-10-23 15:01:22.300395
+\.
+
+
+$ kubectl get cronjob db-backup-cronjob
+NAME                SCHEDULE      TIMEZONE   SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+db-backup-cronjob   */5 * * * *   <none>     False     0        93s             5m9s
+
+$ kubectl get jobs -o custom-columns=JOB:.metadata.name,CREADO_POR:.metadata.annotations.cronjob\.kubernetes\.io/instantiate,COMPLETIONS:.status.succeeded,INICIO:.status.startTime
+JOB                          CREADO_POR   COMPLETIONS   INICIO
+backup-manual-1              manual       1             2026-10-23T15:01:24Z
+backup-manual-2              manual       1             2026-10-23T15:02:32Z
+db-backup-cronjob-29879465   <none>       1             2026-10-23T15:05:00Z
+db-migration-job             <none>       1             2026-10-23T15:01:14Z
+
+$ bash scripts/inspect-backups.sh
+pod/inspect-backup created
+total 12
+-rw-r--r--    1 root     root          2488 Oct 23 15:01 backup-20261023-150129.sql
+-rw-r--r--    1 root     root          2488 Oct 23 15:02 backup-20261023-150233.sql
+-rw-r--r--    1 root     root          2488 Oct 23 15:05 backup-20261023-150500.sql
+
+Datos del respaldo mas reciente:
+COPY public.productos (id, nombre, precio, creado_en) FROM stdin;
+1	Servidor Rack Dell PowerEdge	4500.00	2026-10-23 14:29:39.037578
+2	Switch Gestionable Cisco 48p	1200.00	2026-10-23 14:29:39.037578
+4	Laptop Gilson Ponce	1500.00	2026-10-23 14:47:42.621505
+5	Monitor Kubernetes gponceb	349.99	2026-10-23 14:56:04.195915
+6	Audífonos Canceling Sony	320.00	2026-10-23 15:01:22.300395
+\.
+
+

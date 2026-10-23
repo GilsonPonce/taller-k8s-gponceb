@@ -1,0 +1,19 @@
+apiVersion: autoscaling/v2 # API para autoscaling dinámico basado en métricas
+kind: HorizontalPodAutoscaler # Ajusta automáticamente el número de pods de un Deployment
+metadata:
+  name: backend-hpa
+  namespace: gponceb # Namespace del estudiante
+spec:
+  scaleTargetRef: # Recurso objetivo a escalar
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend-api # Apunta al Deployment de la API
+  minReplicas: 2 # CONFIGURACIÓN MÍNIMA: Nunca habrá menos de 2 pods corriendo (Alta Disponibilidad)
+  maxReplicas: 10 # CONFIGURACIÓN MÁXIMA: Límite superior para proteger los recursos del nodo/cluster
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70 # Dispara el escalado horizontal cuando la CPU promedio supere el 70%

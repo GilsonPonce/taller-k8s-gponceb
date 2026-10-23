@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-frontend
+  namespace: gponceb # Namespace del estudiante
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend-web # Aplica estas excepciones exclusivamente al Frontend
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - {} # Autoriza el tráfico desde cualquier origen externo (Ingress Controller)
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: backend-api # Habilita la salida estricta únicamente hacia el Pod del Backend API
+    ports:
+    - protocol: TCP
+      port: 5678
+  - to: # Agregado: resolución DNS (sin esto el default-deny bloquea CoreDNS)
+    - namespaceSelector: {}
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53

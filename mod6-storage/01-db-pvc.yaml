@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim # Solicitud de volumen de almacenamiento administrado dinámicamente
+metadata:
+  name: postgres-pvc
+  namespace: gponceb # Namespace del estudiante
+spec:
+  accessModes:
+    - ReadWriteOnce # El volumen se monta como lectura/escritura por un solo nodo
+  resources:
+    requests:
+      storage: 2Gi # Espacio reservado

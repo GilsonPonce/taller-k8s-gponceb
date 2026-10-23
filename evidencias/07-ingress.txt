@@ -1,0 +1,15 @@
+$ kubectl apply -f mod5-networking/04-ingress-nginx.yaml
+ingress.networking.k8s.io/app-ingress created
+
+$ kubectl get ingress
+NAME          CLASS   HOSTS   ADDRESS   PORTS   AGE
+app-ingress   nginx   *                 80      10s
+
+$ curl -s -o /dev/null -w 'GET / -> HTTP %{http_code}
+' http://localhost/
+GET / -> HTTP 200
+
+$ curl -s http://localhost/api/productos
+[{"id":1,"nombre":"Servidor Rack Dell PowerEdge","precio":"4500.00","creado_en":"2026-10-23T14:29:39.037Z"},{"id":2,"nombre":"Switch Gestionable Cisco 48p","precio":"1200.00","creado_en":"2026-10-23T14:29:39.037Z"},{"id":3,"nombre":"UPS APC 3000VA Enterprise","precio":"890.00","creado_en":"2026-10-23T14:29:39.037Z"}]
+$ curl -s -X POST -H 'Content-Type: application/json' -d '{"nombre":"Laptop Gilson Ponce","precio":1500}' http://localhost/api/productos
+{"id":4,"nombre":"Laptop Gilson Ponce","precio":"1500.00","creado_en":"2026-10-23T14:47:42.621Z"}

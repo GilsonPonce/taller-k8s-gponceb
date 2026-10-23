@@ -1,0 +1,12 @@
+# Archivo listado en la estructura del taller pero sin contenido en la guía.
+# Externaliza la configuración NO sensible del backend (la sensible vive en db-secret).
+apiVersion: v1
+kind: ConfigMap # Configuración no sensible inyectada como variables de entorno
+metadata:
+  name: backend-config
+  namespace: gponceb # Namespace del estudiante
+data:
+  DB_HOST: "postgres-service" # Nombre DNS del Service de PostgreSQL
+  DB_PORT: "5432" # Puerto del Service de PostgreSQL
+  PORT: "5678" # Puerto en el que escucha la API Express
+  NODE_ENV: "production"

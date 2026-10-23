@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-web
+  namespace: gponceb # Namespace del estudiante
+  labels:
+    tier: frontend
+spec:
+  replicas: 2 # Configuración base de 2 réplicas
+  selector:
+    matchLabels:
+      app: frontend-web
+  template:
+    metadata:
+      labels:
+        app: frontend-web
+        tier: frontend
+    spec:
+      containers:
+      - name: web
+        image: k8s-frontend:v1.0
+        imagePullPolicy: Never # Utiliza la imagen local importada en containerd
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "250m"
+            memory: "128Mi"
+        ports:
+        - containerPort: 80 # Puerto de NGINX estático

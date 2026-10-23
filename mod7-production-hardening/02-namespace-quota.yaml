@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ResourceQuota # Establece restricciones máximas agregadas de recursos para todo el Namespace
+metadata:
+  name: compute-quota
+  namespace: gponceb # Namespace del estudiante
+spec:
+  hard:
+    requests.cpu: "2" # Suma máxima de CPU asignable a la suma de todos los pods
+    requests.memory: 2Gi
+    limits.cpu: "4"
+    limits.memory: 4Gi
+    pods: "20" # Límite máximo global de pods dentro del namespace

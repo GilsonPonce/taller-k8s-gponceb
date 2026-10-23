@@ -1,0 +1,55 @@
+apiVersion: apps/v1 # API de controladores de carga de trabajo
+kind: StatefulSet # Administrador de estado para pods con almacenamiento persistente único
+metadata:
+  name: postgres-db # Nombre del StatefulSet
+  namespace: gponceb # Namespace del estudiante
+  labels:
+    tier: database # Etiqueta organizacional para agrupación y políticas
+spec:
+  serviceName: postgres-service # Nombre del Headless/ClusterIP Service asociado
+  replicas: 1 # Número inicial fija de pods persistentes
+  selector:
+    matchLabels:
+      app: postgres # Selector de concordancia con las etiquetas del template
+  template:
+    metadata:
+      labels:
+        app: postgres # Etiqueta del pod resultante
+        tier: database
+    spec:
+      containers:
+      - name: postgres # Nombre del contenedor principal
+        image: postgres:15-alpine # Imagen oficial optimizada para PostgreSQL
+        envFrom:
+        - secretRef:
+            name: db-secret # Inyecta las variables de entorno definidas en el Secret
+        env:
+        - name: PGDATA # Subdirectorio de datos: evita conflictos si el volumen trae archivos previos (lost+found)
+          value: /var/lib/postgresql/data/pgdata
+        resources: # Requests/limits obligatorios cuando el Namespace tiene ResourceQuota (Módulo 7)
+          requests:
+            cpu: "100m"
+            memory: "256Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        ports:
+        - containerPort: 5432 # Puerto nativo expuesto por PostgreSQL
+          name: postgres
+        volumeMounts:
+        - name: postgres-storage # Punto de montaje del PVC dinámico
+          mountPath: /var/lib/postgresql/data # Ruta oficial de almacenamiento en PostgreSQL
+        - name: init-script # Montaje del ConfigMap DDL
+          mountPath: /docker-entrypoint-initdb.d # Carpeta de auto-ejecución al iniciar la BD
+      volumes:
+      - name: init-script
+        configMap:
+          name: db-init-script # Referencia al ConfigMap del script SQL
+  volumeClaimTemplates: # Genera un PVC individual por cada pod del StatefulSet
+  - metadata:
+      name: postgres-storage # Nombre base del volumen solicitado
+    spec:
+      accessModes: [ "ReadWriteOnce" ] # El volumen solo puede ser montado en lectura/escritura por un solo nodo
+      resources:
+        requests:
+          storage: 2Gi # Tamaño solicitado de disco persistente

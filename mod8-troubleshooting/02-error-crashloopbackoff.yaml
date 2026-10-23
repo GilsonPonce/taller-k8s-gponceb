@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: error-crash-loop
+  namespace: gponceb # Namespace del estudiante
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: crash-fail
+  template:
+    metadata:
+      labels:
+        app: crash-fail
+    spec:
+      containers:
+      - name: api
+        image: node:18-alpine
+        command: ["node", "-e", "throw new Error('FATAL: Variable de entorno DB_HOST no configurada');"]

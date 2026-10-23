@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget # Protege la disponibilidad asegurando réplicas mínimas durante mantenimientos
+metadata:
+  name: backend-pdb
+  namespace: gponceb # Namespace del estudiante
+spec:
+  minAvailable: 1 # Durante evicciones o drenado de nodos, garantiza que al menos 1 pod siga disponible
+  selector:
+    matchLabels:
+      app: backend-api

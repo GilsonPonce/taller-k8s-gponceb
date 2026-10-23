@@ -1,0 +1,7 @@
+apiVersion: v1 # API principal de Kubernetes
+kind: Namespace # Recurso para aislamiento lógico dentro del clúster
+metadata:
+  name: gponceb # Namespace del estudiante (Ponce Briones)
+  labels:
+    environment: workshop
+    student: gponceb

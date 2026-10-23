@@ -1,0 +1,87 @@
+$ kubectl get all -n gponceb
+NAME                                   READY   STATUS      RESTARTS   AGE
+pod/backend-api-7f8496c7f9-68znx       2/2     Running     0          20m
+pod/backend-api-7f8496c7f9-rbtbx       2/2     Running     0          20m
+pod/backup-manual-1-gcxq5              0/1     Completed   0          5m32s
+pod/backup-manual-2-rg82b              0/1     Completed   0          4m24s
+pod/db-backup-cronjob-29879465-8hthm   0/1     Completed   0          116s
+pod/db-migration-job-dzfdm             0/1     Completed   0          5m35s
+pod/fluentd-logging-q4t9k              1/1     Running     0          37m
+pod/frontend-web-c87d4b684-brc6n       1/1     Running     0          20m
+pod/frontend-web-c87d4b684-cz4q6       1/1     Running     0          20m
+pod/postgres-db-0                      1/1     Running     0          37m
+
+NAME                       TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)        AGE
+service/backend-service    ClusterIP   10.96.140.224    <none>        5678/TCP       37m
+service/frontend-service   NodePort    10.100.189.225   <none>        80:30080/TCP   37m
+service/postgres-service   ClusterIP   10.97.136.121    <none>        5432/TCP       37m
+
+NAME                             DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
+daemonset.apps/fluentd-logging   1         1         1       1            1           <none>          37m
+
+NAME                           READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/backend-api    2/2     2            2           20m
+deployment.apps/frontend-web   2/2     2            2           20m
+
+NAME                                     DESIRED   CURRENT   READY   AGE
+replicaset.apps/backend-api-58f6b74679   0         0         0       20m
+replicaset.apps/backend-api-7f8496c7f9   2         2         2       20m
+replicaset.apps/frontend-web-c87d4b684   2         2         2       20m
+
+NAME                           READY   AGE
+statefulset.apps/postgres-db   1/1     37m
+
+NAME                                              REFERENCE                TARGETS       MINPODS   MAXPODS   REPLICAS   AGE
+horizontalpodautoscaler.autoscaling/backend-hpa   Deployment/backend-api   cpu: 1%/70%   2         10        2          20m
+
+NAME                              SCHEDULE      TIMEZONE   SUSPEND   ACTIVE   LAST SCHEDULE   AGE
+cronjob.batch/db-backup-cronjob   */5 * * * *   <none>     False     0        116s            5m32s
+
+NAME                                   STATUS     COMPLETIONS   DURATION   AGE
+job.batch/backup-manual-1              Complete   1/1           7s         5m32s
+job.batch/backup-manual-2              Complete   1/1           3s         4m24s
+job.batch/db-backup-cronjob-29879465   Complete   1/1           3s         116s
+job.batch/db-migration-job             Complete   1/1           10s        5m42s
+
+$ kubectl get pvc,ingress,networkpolicy,pdb,resourcequota,limitrange,configmap,secret -n gponceb
+NAME                                                   STATUS    VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+persistentvolumeclaim/backup-pvc                       Bound     pvc-728907df-f256-4063-83cc-7e5158365f72   5Gi        RWO            local-path     <unset>                 37m
+persistentvolumeclaim/postgres-pvc                     Pending                                                                        local-path     <unset>                 37m
+persistentvolumeclaim/postgres-storage-postgres-db-0   Bound     pvc-83ecc35a-07d7-43ee-afaa-0c0c23e86a20   2Gi        RWO            local-path     <unset>                 37m
+
+NAME                                    CLASS   HOSTS   ADDRESS       PORTS   AGE
+ingress.networking.k8s.io/app-ingress   nginx   *       10.51.20.21   80      19m
+
+NAME                                               POD-SELECTOR       AGE
+networkpolicy.networking.k8s.io/allow-backend      app=backend-api    61s
+networkpolicy.networking.k8s.io/allow-database     app=postgres       4m44s
+networkpolicy.networking.k8s.io/allow-db-clients   role=db-client     4m44s
+networkpolicy.networking.k8s.io/allow-frontend     app=frontend-web   4m44s
+networkpolicy.networking.k8s.io/default-deny-all   <none>             4m44s
+
+NAME                                     MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+poddisruptionbudget.policy/backend-pdb   1               N/A               1                     20m
+
+NAME                          REQUEST                                                        LIMIT                                            AGE
+resourcequota/compute-quota   pods: 6/20, requests.cpu: 520m/2, requests.memory: 772Mi/2Gi   limits.cpu: 2300m/4, limits.memory: 1544Mi/4Gi   20m
+
+NAME                        CREATED AT
+limitrange/default-limits   2026-10-23T14:46:47Z
+
+NAME                         DATA   AGE
+configmap/backend-config     4      37m
+configmap/db-init-script     1      37m
+configmap/kube-root-ca.crt   1      37m
+
+NAME               TYPE     DATA   AGE
+secret/db-secret   Opaque   3      37m
+
+$ kubectl top pods -n gponceb
+NAME                           CPU(cores)   MEMORY(bytes)   
+backend-api-7f8496c7f9-68znx   1m           25Mi            
+backend-api-7f8496c7f9-rbtbx   1m           24Mi            
+fluentd-logging-q4t9k          1m           64Mi            
+frontend-web-c87d4b684-brc6n   0m           22Mi            
+frontend-web-c87d4b684-cz4q6   0m           22Mi            
+postgres-db-0                  1m           29Mi            
+

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: gponceb # Namespace del estudiante
+spec:
+  type: NodePort # Expone el servicio en un puerto estático en la IP de cada nodo
+  ports:
+  - port: 80 # Puerto interno expuesto a Ingress/Cluster
+    targetPort: 80 # Puerto del contenedor NGINX
+    nodePort: 30080 # Puerto estático expuesto en el host
+  selector:
+    app: frontend-web

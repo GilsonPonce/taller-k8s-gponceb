@@ -1,0 +1,18 @@
+# Archivo listado en la estructura del taller pero sin contenido en la guía.
+# Muestra explícitamente el PVC que el volumeClaimTemplates de 03-db-statefulset.yaml
+# genera de forma automática. El nombre sigue la convención
+#   <nombre-template>-<nombre-statefulset>-<ordinal>  =>  postgres-storage-postgres-db-0
+# Aplicarlo tras crear el StatefulSet solo "adopta" el PVC existente (no crea uno nuevo);
+# si se aplica antes, el StatefulSet reutiliza este PVC para el pod postgres-db-0.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-storage-postgres-db-0
+  namespace: gponceb # Namespace del estudiante
+  labels:
+    app: postgres
+spec:
+  accessModes: [ "ReadWriteOnce" ]
+  resources:
+    requests:
+      storage: 2Gi

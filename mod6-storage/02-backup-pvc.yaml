@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-pvc
+  namespace: gponceb # Namespace del estudiante
+spec:
+  accessModes:
+    # La guía usa ReadWriteMany, pero el aprovisionador local-path (y el hostpath de
+    # Docker Desktop) solo soporta ReadWriteOnce; con RWX el PVC queda en Pending.
+    # En un clúster de un solo nodo RWO permite que el CronJob y el pod de inspección lo monten.
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi # Espacio dedicado exclusivamente para volúmenes de respaldo

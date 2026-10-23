@@ -1,0 +1,37 @@
+$ kubectl apply -f mod4-config/01-production-probes-resources.yaml
+deployment.apps/backend-api configured
+
+$ kubectl describe deploy backend-api | grep -E 'Liveness|Readiness|Containers:|^   [a-z-]+:$'
+  Init Containers:
+   check-db-ready:
+  Containers:
+   api:
+    Liveness:   http-get http://:5678/healthz delay=15s timeout=1s period=10s successThreshold=1 failureThreshold=3
+    Readiness:  http-get http://:5678/healthz delay=5s timeout=1s period=5s successThreshold=1 failureThreshold=3
+   log-adapter-sidecar:
+   shared-logs:
+
+$ kubectl apply -f mod7-production-hardening/01-backend-pdb.yaml
+poddisruptionbudget.policy/backend-pdb created
+
+$ kubectl apply -f mod7-production-hardening/03-limitrange.yaml
+limitrange/default-limits created
+
+$ kubectl apply -f mod7-production-hardening/02-namespace-quota.yaml
+resourcequota/compute-quota created
+
+$ kubectl get pdb
+NAME          MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+backend-pdb   1               N/A               1                     1s
+
+$ kubectl describe resourcequota compute-quota
+Name:            compute-quota
+Namespace:       gponceb
+Resource         Used    Hard
+--------         ----    ----
+limits.cpu       3400m   4
+limits.memory    2120Mi  4Gi
+pods             8       20
+requests.cpu     740m    2
+requests.memory  1060Mi  2Gi
+

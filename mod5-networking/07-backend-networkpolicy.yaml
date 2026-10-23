@@ -1,0 +1,38 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-backend
+  namespace: gponceb # Namespace del estudiante
+spec:
+  podSelector:
+    matchLabels:
+      app: backend-api # Aplica estas reglas al Backend API
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: frontend-web # Acepta conexiones entrantes del Frontend Web
+    - namespaceSelector: # Agregado: el navegador llama a /api a través del Ingress Controller,
+        matchLabels:       # así que sus pods (namespace ingress-nginx) deben poder llegar al backend
+          kubernetes.io/metadata.name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 5678
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: postgres # Permite tráfico de salida exclusivamente hacia PostgreSQL
+    ports:
+    - protocol: TCP
+      port: 5432
+  - to: # Permite resolución DNS con el plugin CoreDNS del clúster
+    - namespaceSelector: {}
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53

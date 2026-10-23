@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job # Recurso para ejecutar tareas puntuales hasta su finalización exitosa (Exit Code 0)
+metadata:
+  name: db-migration-job
+  namespace: gponceb # Namespace del estudiante
+spec:
+  template:
+    metadata:
+      labels:
+        role: db-client # Permite el acceso a PostgreSQL bajo Zero-Trust (08-db-clients-networkpolicy.yaml)
+    spec:
+      containers:
+      - name: migration
+        image: postgres:15-alpine
+        envFrom:
+        - secretRef:
+            name: db-secret
+        resources:
+          requests:
+            cpu: "50m"
+            memory: "64Mi"
+          limits:
+            cpu: "200m"
+            memory: "128Mi"
+        command:
+        - sh
+        - -c
+        - |
+          PGPASSWORD=$POSTGRES_PASSWORD psql -h postgres-service -U $POSTGRES_USER -d $POSTGRES_DB -c "INSERT INTO productos (nombre, precio) VALUES ('Audífonos Canceling Sony', 320.00);"
+      restartPolicy: Never # No reinicia el contenedor en caso de éxito; lo deja finalizado (Completed)
+  backoffLimit: 3 # Reintentos máximos si el comando falla antes de marcar el Job como Failed

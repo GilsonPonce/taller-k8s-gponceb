@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: error-image-pull
+  namespace: gponceb # Namespace del estudiante
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: image-fail
+  template:
+    metadata:
+      labels:
+        app: image-fail
+    spec:
+      containers:
+      - name: web
+        image: registro-inexistente.com/app-ficticia:v999 # Error introducido intencionalmente

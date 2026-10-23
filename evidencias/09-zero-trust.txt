@@ -1,0 +1,61 @@
+## ANTES de las NetworkPolicies (cualquier pod llega al backend)
+$ kubectl run test-unauthorized --image=curlimages/curl --rm -i --restart=Never -q -- curl -s -o /dev/null -w "HTTP %{http_code}
+" --connect-timeout 3 http://backend-service:5678/api/productos; echo "exit=$?"
+HTTP 200
+exit=0
+
+## Aplicando Zero-Trust
+$ kubectl apply -f mod5-networking/05-default-deny-networkpolicy.yaml
+networkpolicy.networking.k8s.io/default-deny-all created
+
+$ kubectl apply -f mod5-networking/06-frontend-networkpolicy.yaml
+networkpolicy.networking.k8s.io/allow-frontend created
+
+$ kubectl apply -f mod5-networking/07-backend-networkpolicy.yaml
+networkpolicy.networking.k8s.io/allow-backend created
+
+$ kubectl apply -f mod5-networking/08-database-networkpolicy.yaml
+networkpolicy.networking.k8s.io/allow-database created
+networkpolicy.networking.k8s.io/allow-db-clients created
+
+$ kubectl get networkpolicy
+NAME               POD-SELECTOR       AGE
+allow-backend      app=backend-api    5s
+allow-database     app=postgres       5s
+allow-db-clients   role=db-client     5s
+allow-frontend     app=frontend-web   5s
+default-deny-all   <none>             5s
+
+## DESPUÉS: pod no autorizado -> backend (debe fallar)
+$ kubectl run test-unauthorized --image=curlimages/curl --rm -i --restart=Never -q -- curl -s -o /dev/null -w "HTTP %{http_code}
+" --connect-timeout 3 http://backend-service:5678/api/productos; echo "exit=$?"
+HTTP 000
+pod gponceb/test-unauthorized terminated (Error)
+exit=28
+
+## DESPUÉS: pod no autorizado -> PostgreSQL por IP (sin DNS, debe hacer timeout)
+$ kubectl run test-unauthorized-db --image=busybox:1.36 --rm -i --restart=Never -q -- sh -c 'nc -z -w 3 10.97.136.121 5432 && echo CONECTADO || echo BLOQUEADO'
+BLOQUEADO
+
+## DESPUÉS: pod con etiqueta app=frontend-web -> backend (autorizado)
+$ kubectl run test-authorized --labels=app=frontend-web --image=curlimages/curl --rm -i --restart=Never -q -- curl -s -o /dev/null -w 'HTTP %{http_code}
+' --connect-timeout 3 http://backend-service:5678/api/productos
+HTTP 200
+
+## DESPUÉS: la app sigue funcionando a través del Ingress
+$ curl -s -o /dev/null -w 'GET http://localhost/ -> HTTP %{http_code}
+' http://localhost/
+GET http://localhost/ -> HTTP 200
+
+$ curl -s -o /dev/null -w 'GET http://localhost/api/productos -> HTTP %{http_code}
+' http://localhost/api/productos
+GET http://localhost/api/productos -> HTTP 200
+
+## DESPUÉS: el backup (role=db-client) sigue llegando a PostgreSQL
+$ kubectl create job backup-manual-2 --from=cronjob/db-backup-cronjob
+job.batch/backup-manual-2 created
+
+$ kubectl logs job/backup-manual-2
+=== GENERANDO BACKUP EN VOLUMEN PERSISTENTE ===
+Backup guardado exitosamente en: /backups/backup-20261023-150233.sql
+

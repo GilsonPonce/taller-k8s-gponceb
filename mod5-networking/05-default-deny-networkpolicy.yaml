@@ -1,0 +1,10 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy # Regla de firewall L3/L4 para la red interna de Pods
+metadata:
+  name: default-deny-all
+  namespace: gponceb # Namespace del estudiante
+spec:
+  podSelector: {} # Un selector vacío selecciona TODOS los pods del Namespace
+  policyTypes:
+  - Ingress # Bloquea todo el tráfico entrante
+  - Egress # Bloquea todo el tráfico saliente

@@ -1,0 +1,31 @@
+$ kubectl apply -f mod5-networking/02-backend-service.yaml
+service/backend-service created
+
+$ kubectl apply -f mod5-networking/03-frontend-service.yaml
+service/frontend-service created
+
+$ kubectl apply -f mod3-workloads/07-fluentd-daemonset.yaml
+daemonset.apps/fluentd-logging created
+
+$ kubectl apply -f mod3-workloads/05-backend-deployment-multicontainer.yaml
+deployment.apps/backend-api created
+
+$ kubectl apply -f mod3-workloads/06-frontend-deployment-sidecar.yaml
+deployment.apps/frontend-web created
+
+$ kubectl get pods -o wide
+NAME                           READY   STATUS    RESTARTS   AGE   IP              NODE   NOMINATED NODE   READINESS GATES
+backend-api-58f6b74679-j6z7l   2/2     Running   0          5s    10.244.90.141   dev    <none>           <none>
+backend-api-58f6b74679-thb2w   2/2     Running   0          5s    10.244.90.140   dev    <none>           <none>
+fluentd-logging-q4t9k          1/1     Running   0          16m   10.244.90.139   dev    <none>           <none>
+frontend-web-c87d4b684-brc6n   1/1     Running   0          5s    10.244.90.142   dev    <none>           <none>
+frontend-web-c87d4b684-cz4q6   1/1     Running   0          5s    10.244.90.143   dev    <none>           <none>
+postgres-db-0                  1/1     Running   0          16m   10.244.90.138   dev    <none>           <none>
+
+$ kubectl logs deploy/backend-api -c check-db-ready
+Found 2 pods, using pod/backend-api-58f6b74679-thb2w
+
+$ kubectl logs deploy/backend-api -c api
+Found 2 pods, using pod/backend-api-58f6b74679-thb2w
+Backend API escuchando en el puerto 5678
+

@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: error-ingress-bad-gateway
+  namespace: gponceb # Namespace del estudiante
+spec:
+  ingressClassName: nginx
+  rules:
+  - http:
+      paths:
+      - path: /broken-route
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 9999 # Puerto incorrecto: El servicio escucha en el 5678

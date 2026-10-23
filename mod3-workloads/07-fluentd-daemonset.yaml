@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: DaemonSet # Asegura que una copia de este Pod corra en TODOS los nodos del cluster
+metadata:
+  name: fluentd-logging
+  namespace: gponceb # Namespace del estudiante
+  labels:
+    tier: logging
+spec:
+  selector:
+    matchLabels:
+      name: fluentd
+  template:
+    metadata:
+      labels:
+        name: fluentd
+        tier: logging
+    spec:
+      containers:
+      - name: fluentd
+        image: fluent/fluentd:v1.14-1 # Agente recolector de logs
+        resources:
+          limits:
+            cpu: 200m # Agregado: la ResourceQuota exige limits.cpu en todos los pods
+            memory: 200Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi

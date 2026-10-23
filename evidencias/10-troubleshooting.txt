@@ -1,0 +1,188 @@
+######## 1. ImagePullBackOff
+$ kubectl apply -f mod8-troubleshooting/01-error-imagepullbackoff.yaml
+deployment.apps/error-image-pull created
+
+######## 2. CrashLoopBackOff
+$ kubectl apply -f mod8-troubleshooting/02-error-crashloopbackoff.yaml
+deployment.apps/error-crash-loop created
+
+######## 3. OOMKilled
+$ kubectl apply -f mod8-troubleshooting/03-error-oomkilled.yaml
+deployment.apps/error-oom-killed created
+
+######## 4. PVC Pending
+$ kubectl apply -f mod8-troubleshooting/04-error-pvc-pending.yaml
+persistentvolumeclaim/error-pvc-pending created
+
+$ kubectl get pods -l 'app in (image-fail,crash-fail,oom-fail)'
+NAME                                READY   STATUS             RESTARTS      AGE
+error-crash-loop-6889fc9c5c-jv7sv   0/1     Error              3 (61s ago)   75s
+error-image-pull-85794f5bb5-b2k5x   0/1     ImagePullBackOff   0             75s
+error-oom-killed-5dcc86d84d-msn44   0/1     OOMKilled          3 (56s ago)   75s
+
+######## 1. Diagnóstico ImagePullBackOff
+$ kubectl describe pod -l app=image-fail | sed -n '/Events:/,$p' | grep -E 'Failed|BackOff' | head -4
+  Warning  Failed     33s (x3 over 74s)  kubelet            spec.containers{web}: Failed to pull image "registro-inexistente.com/app-ficticia:v999": failed to pull and unpack image "registro-inexistente.com/app-ficticia:v999": failed to resolve image: failed to do request: Head "https://registro-inexistente.com/v2/app-ficticia/manifests/v999": dial tcp: lookup registro-inexistente.com: no such host
+  Warning  Failed     33s (x3 over 74s)  kubelet            spec.containers{web}: Error: ErrImagePull
+  Normal   BackOff    5s (x5 over 73s)   kubelet            spec.containers{web}: Back-off pulling image "registro-inexistente.com/app-ficticia:v999"
+  Warning  Failed     5s (x5 over 73s)   kubelet            spec.containers{web}: Error: ImagePullBackOff
+
+$ kubectl set image deployment/error-image-pull web=nginx:alpine
+deployment.apps/error-image-pull image updated
+
+$ kubectl get pods -l app=image-fail
+NAME                                READY   STATUS        RESTARTS   AGE
+error-image-pull-6bdd566765-2tfrv   1/1     Running       0          3s
+error-image-pull-85794f5bb5-b2k5x   0/1     Terminating   0          79s
+
+######## 2. Diagnóstico CrashLoopBackOff
+# Nota: 'kubectl logs --previous' devolvió "unable to retrieve container logs" porque el kubelet ya
+# había rotado el log del intento anterior; el contenedor actual ya terminó con el mismo error:
+$ kubectl logs -l app=crash-fail | head -6
+Error: FATAL: Variable de entorno DB_HOST no configurada
+    at [eval]:1:7
+    at runScriptInThisContext (node:internal/vm:143:10)
+    at node:internal/process/execution:100:14
+    at [eval]-wrapper:6:24
+    at runScript (node:internal/process/execution:83:62)
+
+$ kubectl describe pod -l app=crash-fail | grep -E 'State:|Reason:|Exit Code|Restart Count'
+    State:          Terminated
+      Reason:       Error
+      Exit Code:    1
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    1
+    Restart Count:  3
+
+######## 3. Diagnóstico OOMKilled
+$ kubectl describe pod -l app=oom-fail | grep -E 'Reason:|Exit Code|Limits:|memory:|Restart Count'
+      Reason:       OOMKilled
+      Exit Code:    137
+      Reason:       OOMKilled
+      Exit Code:    137
+    Restart Count:  3
+    Limits:
+      memory:  20Mi
+      memory:     20Mi
+
+######## 4. Diagnóstico PVC Pending
+$ kubectl get pvc error-pvc-pending
+NAME                STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS                VOLUMEATTRIBUTESCLASS   AGE
+error-pvc-pending   Pending                                      storage-class-inexistente   <unset>                 80s
+
+$ kubectl describe pvc error-pvc-pending | sed -n '/Events:/,$p'
+Events:
+  Type     Reason              Age                From                         Message
+  ----     ------              ----               ----                         -------
+  Warning  ProvisioningFailed  11s (x6 over 80s)  persistentvolume-controller  storageclass.storage.k8s.io "storage-class-inexistente" not found
+
+######## 5. Ingress 502/503 Bad Gateway
+$ kubectl apply -f mod8-troubleshooting/05-error-ingress-502-bad-gateway.yaml
+ingress.networking.k8s.io/error-ingress-bad-gateway created
+
+$ curl -s -o /dev/null -w 'GET http://localhost/broken-route -> HTTP %{http_code}
+' http://localhost/broken-route
+GET http://localhost/broken-route -> HTTP 503
+
+$ kubectl get endpointslices -l kubernetes.io/service-name=backend-service
+NAME                    ADDRESSTYPE   PORTS   ENDPOINTS                     AGE
+backend-service-khg9c   IPv4          5678    10.244.90.144,10.244.90.145   35m
+
+$ kubectl get svc backend-service -o jsonpath='{.spec.ports[*].port}{"
+"}'
+5678
+
+$ kubectl -n ingress-nginx logs deploy/ingress-nginx-controller --tail=200 | grep -iE 'broken|9999' | tail -3
+10.51.20.21 - - [23/Oct/2026:15:04:57 +0000] "GET /broken-route HTTP/1.1" 503 190 "-" "curl/8.23.0" 85 0.000 [gponceb-backend-service-9999] [] - - - - d1b6a67312a5b4f395dadb978d592d14
+
+######## 6. NetworkPolicy que bloquea DNS
+$ kubectl exec deploy/backend-api -c api -- nslookup postgres-service
+Server:		10.96.0.10
+Address:	10.96.0.10:53
+
+** server can't find postgres-service.cluster.local: NXDOMAIN
+
+
+** server can't find postgres-service.svc.cluster.local: NXDOMAIN
+
+Name:	postgres-service.gponceb.svc.cluster.local
+Address: 10.97.136.121
+
+** server can't find postgres-service.svc.cluster.local: NXDOMAIN
+
+** server can't find postgres-service.cluster.local: NXDOMAIN
+
+command terminated with exit code 1
+
+$ kubectl apply -f mod8-troubleshooting/06-error-networkpolicy-blocked.yaml
+networkpolicy.networking.k8s.io/error-block-dns created
+
+$ kubectl exec deploy/backend-api -c api -- nslookup -timeout=3 postgres-service
+Server:		10.96.0.10
+Address:	10.96.0.10:53
+
+** server can't find postgres-service.cluster.local: NXDOMAIN
+
+** server can't find postgres-service.cluster.local: NXDOMAIN
+
+
+Name:	postgres-service.gponceb.svc.cluster.local
+Address: 10.97.136.121
+
+** server can't find postgres-service.svc.cluster.local: NXDOMAIN
+
+** server can't find postgres-service.svc.cluster.local: NXDOMAIN
+
+command terminated with exit code 1
+
+$ curl -s -m 10 -o /dev/null -w 'GET http://localhost/api/productos -> HTTP %{http_code}
+' http://localhost/api/productos
+GET http://localhost/api/productos -> HTTP 200
+
+>> Observación: con allow-backend presente, error-block-dns NO bloquea el DNS (nslookup resuelve
+>> postgres-service.gponceb.svc.cluster.local -> 10.97.136.121; el exit code 1 de nslookup se debe a
+>> los dominios de búsqueda NXDOMAIN, no a un bloqueo). Las NetworkPolicies son ADITIVAS (unión OR):
+>> una política con "egress: []" no revoca lo que otra política ya permite. El fallo aparece cuando
+>> la única política que selecciona al pod es la restrictiva. Se simula eliminando allow-backend:
+
+$ kubectl delete networkpolicy allow-backend
+networkpolicy.networking.k8s.io "allow-backend" deleted from gponceb namespace
+
+$ kubectl exec deploy/backend-api -c api -- nslookup -timeout=2 -retry=1 postgres-service 2>&1 | tail -3
+;; connection timed out; no servers could be reached
+
+command terminated with exit code 1
+
+$ curl -s -m 10 -o /dev/null -w 'GET http://localhost/api/productos -> HTTP %{http_code}
+' http://localhost/api/productos
+GET http://localhost/api/productos -> HTTP 000
+
+$ kubectl get pods -l app=backend-api
+NAME                           READY   STATUS    RESTARTS   AGE
+backend-api-7f8496c7f9-68znx   2/2     Running   0          19m
+backend-api-7f8496c7f9-rbtbx   2/2     Running   0          19m
+
+>> Solución: eliminar la política errónea y restaurar allow-backend
+$ kubectl delete networkpolicy error-block-dns
+networkpolicy.networking.k8s.io "error-block-dns" deleted from gponceb namespace
+
+$ kubectl apply -f mod5-networking/07-backend-networkpolicy.yaml
+networkpolicy.networking.k8s.io/allow-backend created
+
+$ kubectl exec deploy/backend-api -c api -- nslookup postgres-service 2>&1 | grep -A1 '^Name'
+Name:	postgres-service.gponceb.svc.cluster.local
+Address: 10.97.136.121
+
+$ curl -s -m 10 -o /dev/null -w 'GET http://localhost/api/productos -> HTTP %{http_code}
+' http://localhost/api/productos
+GET http://localhost/api/productos -> HTTP 200
+
+>> Limpieza de los escenarios de error
+$ kubectl delete -f mod8-troubleshooting/01-error-imagepullbackoff.yaml -f mod8-troubleshooting/02-error-crashloopbackoff.yaml -f mod8-troubleshooting/03-error-oomkilled.yaml -f mod8-troubleshooting/04-error-pvc-pending.yaml -f mod8-troubleshooting/05-error-ingress-502-bad-gateway.yaml
+deployment.apps "error-image-pull" deleted from gponceb namespace
+deployment.apps "error-crash-loop" deleted from gponceb namespace
+deployment.apps "error-oom-killed" deleted from gponceb namespace
+persistentvolumeclaim "error-pvc-pending" deleted from gponceb namespace
+ingress.networking.k8s.io "error-ingress-bad-gateway" deleted from gponceb namespace
+

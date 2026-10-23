@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service # Nombre con el que se resuelve en el DNS interno del cluster (CoreDNS)
+  namespace: gponceb # Namespace del estudiante
+spec:
+  type: ClusterIP # Tipo por defecto: Solo accesible desde el interior del cluster
+  ports:
+  - port: 5432 # Puerto en el que escucha el Service
+    targetPort: 5432 # Puerto interno del contenedor de la BD
+  selector:
+    app: postgres # Enruta tráfico a pods con esta etiqueta
